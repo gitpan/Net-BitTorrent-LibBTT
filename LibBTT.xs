@@ -136,6 +136,101 @@ s(t)
 	RETVAL
 
 
+void
+cxn_announce(t, args, user_agent, addr, port)
+	Net::BitTorrent::LibBTT::Tracker	t;
+	char*							args;
+	char*							user_agent;
+	u_int32_t						addr;
+	u_int16_t						port;
+
+	PPCODE:
+	struct sockaddr_in address = { AF_INET, htons(port), { addr } };
+	char* content = NULL;
+	int len = 0;
+	int rv;
+	apr_pool_t* p;
+	
+	apr_pool_create(&p, t->tracker->p);
+	
+	rv = bt_cxn_announce(t->tracker, p, NULL, args, user_agent, address, &content, &len);
+
+	XPUSHs(sv_2mortal(newSViv(rv)));
+	XPUSHs(sv_2mortal(newSViv(len)));
+	if(len)
+	 XPUSHs(sv_2mortal(newSVpv(content, len)));
+	
+void
+cxn_details(t, args, addr, port)
+	Net::BitTorrent::LibBTT::Tracker	t;
+	char*							args;
+	u_int32_t						addr;
+	u_int16_t						port;
+
+	PPCODE:
+	struct sockaddr_in address = { AF_INET, htons(port), { addr } };
+	char* content = NULL;
+	int len = 0;
+	int rv;
+	apr_pool_t* p;
+	
+	apr_pool_create(&p, t->tracker->p);
+	
+	rv = bt_cxn_details(t->tracker, p, NULL, args, address, &content, &len);
+
+	XPUSHs(sv_2mortal(newSViv(rv)));
+	XPUSHs(sv_2mortal(newSViv(len)));
+	if(len)
+	 XPUSHs(sv_2mortal(newSVpv(content, len)));
+	
+void
+cxn_register(t, args, addr, port)
+	Net::BitTorrent::LibBTT::Tracker	t;
+	char*							args;
+	u_int32_t						addr;
+	u_int16_t						port;
+
+	PPCODE:
+	struct sockaddr_in address = { AF_INET, htons(port), { addr } };
+	char* content = NULL;
+	int len = 0;
+	int rv;
+	apr_pool_t* p;
+	
+	apr_pool_create(&p, t->tracker->p);
+	
+	rv = bt_cxn_register(t->tracker, p, NULL, args, address, &content, &len);
+
+	XPUSHs(sv_2mortal(newSViv(rv)));
+	XPUSHs(sv_2mortal(newSViv(len)));
+	if(len)
+	 XPUSHs(sv_2mortal(newSVpv(content, len)));
+	
+
+void
+cxn_scrape(t, args, addr, port)
+	Net::BitTorrent::LibBTT::Tracker	t;
+	char*							args;
+	u_int32_t						addr;
+	u_int16_t						port;
+
+	PPCODE:
+	struct sockaddr_in address = { AF_INET, htons(port), { addr } };
+	char* content = NULL;
+	int len = 0;
+	int rv;
+	apr_pool_t* p;
+	
+	apr_pool_create(&p, t->tracker->p);
+	
+	rv = bt_cxn_scrape(t->tracker, p, NULL, args, address, &content, &len);
+
+	XPUSHs(sv_2mortal(newSViv(rv)));
+	XPUSHs(sv_2mortal(newSViv(len)));
+	if(len)
+	 XPUSHs(sv_2mortal(newSVpv(content, len)));
+
+
 MODULE = Net::BitTorrent::LibBTT		PACKAGE = Net::BitTorrent::LibBTT::Tracker::Config
 
 SV*
@@ -154,6 +249,42 @@ stylesheet(c, stylesheet=NULL)
 	
 	OUTPUT:
 	RETVAL
+
+SV*
+detail_url(c, detail_url=NULL)
+	Net::BitTorrent::LibBTT::Tracker::Config	c
+	char*	detail_url
+	
+	CODE:
+	RETVAL = newSVpv(c->detail_url, strlen(c->detail_url));
+	
+	if(detail_url)
+	{
+	 strncpy(c->detail_url, detail_url, sizeof(c->detail_url) - 1);
+	 c->detail_url[sizeof(c->detail_url)] = 0;
+	}
+	
+	OUTPUT:
+	RETVAL
+
+SV*
+root_include(c, root_include=NULL)
+	Net::BitTorrent::LibBTT::Tracker::Config	c
+	char*	root_include
+	
+	CODE:
+	RETVAL = newSVpv(c->root_include, strlen(c->root_include));
+	
+	if(root_include)
+	{
+	 strncpy(c->root_include, root_include, sizeof(c->root_include) - 1);
+	 c->root_include[sizeof(c->root_include)] = 0;
+	}
+	
+	OUTPUT:
+	RETVAL
+
+
 
 SV*
 db_dir(c)

@@ -18,74 +18,7 @@ our @ISA = qw(Exporter);
 # This allows declaration	use Net::BitTorrent::LibBTT ':all';
 # If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
 # will save memory.
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	BT_EMPTY_HASH
-	BT_EMPTY_INFOHASH
-	BT_EMPTY_PEERID
-	BT_EVENT_LEN
-	BT_HASH_LEN
-	BT_INFOHASH_LEN
-	BT_PATH_LEN
-	BT_PEERID_LEN
-	BT_PEERSTR_LEN
-	BT_SHORT_STRING
-	BT_TINY_STRING
-	HTTP_BAD_REQUEST
-	HTTP_CREATED
-	HTTP_LOCKED
-	HTTP_NOT_FOUND
-	HTTP_OK
-	HTTP_SERVER_ERROR
-	HTTP_UNAUTHORIZED
-) ] );
-
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
-our @EXPORT = qw(
-	BT_EMPTY_HASH
-	BT_EMPTY_INFOHASH
-	BT_EMPTY_PEERID
-	BT_EVENT_LEN
-	BT_HASH_LEN
-	BT_INFOHASH_LEN
-	BT_PATH_LEN
-	BT_PEERID_LEN
-	BT_PEERSTR_LEN
-	BT_SHORT_STRING
-	BT_TINY_STRING
-	HTTP_BAD_REQUEST
-	HTTP_CREATED
-	HTTP_LOCKED
-	HTTP_NOT_FOUND
-	HTTP_OK
-	HTTP_SERVER_ERROR
-	HTTP_UNAUTHORIZED
-);
-
-our $VERSION = '0.0.8';
-
-sub AUTOLOAD {
-    # This AUTOLOAD is used to 'autoload' constants from the constant()
-    # XS function.
-
-    my $constname;
-    our $AUTOLOAD;
-    ($constname = $AUTOLOAD) =~ s/.*:://;
-    croak "&Net::BitTorrent::LibBTT::constant not defined" if $constname eq 'constant';
-    my ($error, $val) = constant($constname);
-    if ($error) { croak $error; }
-    {
-	no strict 'refs';
-	# Fixed between 5.005_53 and 5.005_61
-#XXX	if ($] >= 5.00561) {
-#XXX	    *$AUTOLOAD = sub () { $val };
-#XXX	}
-#XXX	else {
-	    *$AUTOLOAD = sub { $val };
-#XXX	}
-    }
-    goto &$AUTOLOAD;
-}
+our $VERSION = '0.010';
 
 require XSLoader;
 XSLoader::load('Net::BitTorrent::LibBTT', $VERSION);
@@ -111,172 +44,230 @@ Net::BitTorrent::LibBTT - Manipulate a tracker running under libbtt from perl
 
 =head1 DESCRIPTION
 
-  The Net::BitTorrent::LibBTT module provides an interface to the LibBTT
-  Hash and Peer databases and the statistics stored in shared memory.
+The Net::BitTorrent::LibBTT module provides an interface to the LibBTT
+Hash and Peer databases and the statistics stored in shared memory.
 
 =head1 USAGE
 
 =head2 TRACKER
 
-=head3 $tracker = Net::BitTorrent::LibBTT::Tracker->new($dir, [$master])
+=head3 C<< $tracker = Net::BitTorrent::LibBTT::Tracker->new($dir, [$master]) >>
 
-  Connects to, or creates, a LibBTT tracker database.
-  If "$master" is specified, a new database and shared memory region are created.
+Connects to, or creates, a LibBTT tracker database.
+If C<$master> is specified, a new database and shared memory region are created.
 
-  If you are writing a script to be used in the mod_perl environment, use
-  the Apache::ModBT module to initialize your tracker object instead; that
-  module will connect you to an existing tracker object instead of creating a
-  new one, which is far more efficient.
+If you are writing a script to be used in the mod_perl environment, use
+the Apache::ModBT module to initialize your tracker object instead; that
+module will connect you to an existing tracker object instead of creating a
+new one, which is far more efficient.
 
-=head3 Net::BitTorrent::LibBTT::Flags()
-
-  Returns an array of key/value pairs for every flag that this
-  tracker supports.
-  
-  The keys returned are the flags' binary values, and the values
-  returned are the flags' configuration names.
-
-=head3 $tracker->c
-
-  Returns a Net::BitTorrent::LibBTT::Tracker::Config object which allows
-  the tracker's configuration data to be retrieved and set. Consult the
-  libbtt documentation for the meanings of each of these configuration
-  values.
-
-  Methods:
+=head3 CONNECTION ACTIONS
 
 =over
 
-=item $c->stylesheet([$new_val])
+=item C<< $tracker->cxn_announce($args, $user_agent, $addr, $port) >>
 
-  Gets/sets the URI for the stylesheet to be used on HTML pages generated
-  by the tracker.
+Process an "/announce" connection. C<$args> are the URL arguments (info_hash=blah&peer_id=blah&etc),
+C<$user_agent> is the "User-Agent" header sent by the client, C<$addr> is the remote address,
+as an integer, in network byte order (If you're using an L<IO::Socket::INET> object, you can
+get this with "C<< $address = unpack('L', $socket->peeraddr); >>"), and C<$port> is the remote
+port, in host byte order (C<< $socket->peerport >> returns this).
 
-=item $c->db_dir()
+The return value is an array. The first element is the HTTP status code to return,
+the second element is the length of the content, and the third element is the
+content itself.
 
-  Returns the directory on the filesystem where the database is kept.
+=item C<< $tracker->cxn_details($args, $addr, $port) >>
 
-=item $c->flags([$new_val])
+=item C<< $tracker->cxn_register($args, $addr, $port) >>
 
-  NOTE: It is NOT safe to clear the flags and re-set them the way you want.
-  You must always first obtain the current flags, and then only set/clear
-  the ones you intend to change. Not all bits in $new_val will have been
-  defined by the Flags() function; some are used internally. You can 
-  really screw your tracker up if you are not careful when re-setting flags!
+=item C<< $tracker->cxn_scrape($args, $addr, $port) >>
 
-=item $c->random_retry([$new_val])
+Process "details", "announce", and "scrape" requests, respectively. The arguments have
+the same meanings as they do in C<< $tracker->cxn_announce() >>, and the return value
+is also the same.
 
-  Gets/sets the number of times "random" operations should be allowed to
-  iterate if unsuccessful. Currently, the main "random" operation is picking
-  peers off of a peerlist to return to a client; the higher this value, 
-  the more times the tracker will retry building peerlists for /announce
-  requests if random selection does not return any peers.
-
-=item $c->return_peers([$new_val])
-
-  Gets/sets the default number of peers to return on /announce requests.
-
-=item $c->return_interval([$new_val])
-
-  Gets/sets the base return interval to return to peers on /anounce requests.
-
-=item $c->return_max([$new_val])
-
-  Gets/sets the maximum number of peers to return on /announce requests.
-
-=item $c->return_peer_factor([$new_val])
-
-  Gets/sets the "return peer factor".
-  The return interval and return peer factor together determine what interval
-  is returned to a peer. For every (factor) peers on any given infohash,
-  that infohash's interval is increased. For example, if return_peer_factor
-  is set to 10 and return_interval is set to 600, and a hash has 5 peers,
-  they will be told to return in 600 seconds. If the hash has 15 peers,
-  they would be told to return in 1200 seconds, 21 peers would be 1800
-  seconds, etc.
-
-=item $c->hash_watermark([$new_val])
-
-  Gets/sets the hash watermark, which is how many hashes need to be in existance
-  before hashes between "hash_min_age" and "hash_max_age" are deleted.
-
-=item $c->hash_min_age([$new_val])
-
-  Gets/sets the minimum inactivity of an infohash before it is eligible for
-  deletion.
-
-=item $c->hash_max_age([$new_val])
-
-  Gets/sets the maximum inactivity of an infohash before it must be deleted.
-
-=item $c->parent_server()
-
-  If the LibBTT tracker is embedded inside another server, that server will set this
-  value on startup. (eg; "Apache/2.0.49")
+If you wish to get a root HTML info page, specify "html=1" in C<< $args >> for
+C<< $tracker->cxn_scrape() >>.
 
 =back
 
-=head3 $tracker->s
+=head3 C<< Net::BitTorrent::LibBTT::Flags() >>
 
-  Returns a Net::BitTorrent::LibBTT::Stats object which may be used
-  to fetch (and set) statistics on the tracker's internal operation.
+Returns an array of key/value pairs for every flag that this
+tracker supports.
+
+The keys returned are the flags' binary values, and the values
+returned are the flags' configuration names.
+
+=head3 C<< $tracker->c >>
+
+Returns a C<Net::BitTorrent::LibBTT::Tracker::Config> object which allows
+the tracker's configuration data to be retrieved and set. Consult the
+libbtt documentation for the meanings of each of these configuration
+values.
+
+=head4 C<< Net::BitTorrent::LibBTT::Tracker::Config >> Methods
 
 =over
 
-=item $s->num_children()
+=item C<< $c->stylesheet([$new_val]) >>
 
-  This value is incremented/decremented automatically whenever a
-  tracker instance connects/disconnects from a tracker directory
-  and should not be modified externally.
+Gets/sets the URI for the stylesheet to be used on HTML pages generated
+by the tracker.
 
-=item $s->num_requests([$new_val])
+=item C<< $c->db_dir() >>
 
-  Gets/sets the total number of requests this tracker has processed.
+Returns the directory on the filesystem where the database is kept.
 
-=item $s->num_hashes([$new_val])
+=item C<< $c->flags([$new_val]) >>
 
-  Gets/sets the number of hashes on this tracker. Setting this value
-  is pretty useless, since it is re-set by the tracker frequently to
-  reflect the actual database value.
+Gets/sets the tracker configuration's flags.
 
-=item $s->num_peers([$new_val])
+NOTE: It is NOT safe to clear the flags and re-set them the way you want.
+You must always first obtain the current flags, and then only set/clear
+the ones you intend to change. Not all bits in C<$new_val> will have been
+defined by the L</Net::BitTorrent::LibBTT::Flags()> function; some are used internally. You can 
+really screw your tracker up if you are not careful when re-setting flags!
 
-  Gets/sets the number of peers on this tracker. Setting this value
-  is pretty useless, since it is re-set by the tracker frequently to
-  reflect the actual database value.
+=item C<< $c->random_retry([$new_val]) >>
 
-=item $s->announces([$new_val])
+Gets/sets the number of times "random" operations should be allowed to
+iterate if unsuccessful. Currently, the main "random" operation is picking
+peers off of a peerlist to return to a client; the higher this value, 
+the more times the tracker will retry building peerlists for C<< /announce >>
+requests if random selection does not return any peers.
 
-  Gets/sets the number of announce requests this tracker has served.
+=item C<< $c->return_peers([$new_val]) >>
 
-=item $s->scrapes([$new_val])
+Gets/sets the default number of peers to return on C</announce> requests.
 
-  Gets/sets the number of scrape requests this tracker has served.
+=item C<< $c->return_interval([$new_val]) >>
 
-=item $s->full_scrapes([$new_val])
+Gets/sets the base return interval to return to peers on C</anounce> requests.
 
-  Gets/sets the number of non-specific scrape requests this tracker has served.
+=item C<< $c->return_max([$new_val]) >>
 
-=item $s->bad_announces([$new_val])
+Gets/sets the maximum number of peers to return on /announce requests.
 
-  Gets/sets the number of erronious announce requests this tracker has processed.
+=item C<< $c->return_peer_factor([$new_val]) >>
 
-=item $s->bad_scrapes([$new_val])
+Gets/sets the "return peer factor". This value is used to increase
+peers' return intervals as more peers are added to an infohash.
 
-  Gets/sets the number of erronious scrape requests this tracker has processed.
+The following formula is used to calculate what interval to return to
+a peer:
 
-=item $s->start_t([$new_val])
+=over
 
-  Gets/sets the UNIX timestamp when this tracker started up.
+	peer.return_interval = ((tracker.return_peer_factor / infohash.peers) + 1) * tracker.return_interval
 
-=item $s->master_pid([$new_val])
+=back
 
-  Gets/sets process id of the tracker instance that is responsible for final clean-up on shutdown.
-  Changing this value can be hazardous!
+So, with a tracker C<return_interval> of 500 seconds, and a C<return_peer_factor> of 20,
 
-=item $s->server_time([$new_val])
+=over
 
-  This value is updated whenever the tracker processes an announce, register, or scrape request.
+=item *
+An infohash with 10 peers would tell it's peers to return every 500 seconds,
+
+=item *
+an infohash with 22 peers would tell it's peers to return every 1000 seconds,
+
+=item *
+an infohash with 1000 peers would tell it's peers to return every 500000 seconds,
+
+=item *
+etc.
+
+=back
+
+The default C<return_interval> setting is 1000. Setting it below 100 would probably cause problems
+on very popular torrents.
+
+=item C<< $c->hash_watermark([$new_val]) >>
+
+Gets/sets the hash watermark, which is how many hashes need to be in existance
+before hashes between "hash_min_age" and "hash_max_age" are deleted.
+
+=item C<< $c->hash_min_age([$new_val]) >>
+
+Gets/sets the minimum inactivity of an infohash before it is eligible for deletion.
+
+=item C<< $c->hash_max_age([$new_val]) >>
+
+Gets/sets the maximum inactivity of an infohash before it must be deleted.
+
+=item C<< $c->parent_server() >>
+
+If the LibBTT tracker is embedded inside another server, that server will set this
+value on startup. (eg; "Apache/2.0.49")
+
+=back
+
+=head3 C<< $tracker->s >>
+
+Returns a C<Net::BitTorrent::LibBTT::Stats> object which may be used
+to fetch (and set) statistics on the tracker's internal operation.
+
+=head4 C<Net::BitTorrent::LibBTT::Stats> Methods
+
+=over
+
+=item C<< $s->num_children() >>
+
+This value is incremented/decremented automatically whenever a
+tracker instance connects/disconnects from a tracker directory
+and should not be modified externally.
+
+=item C<< $s->num_requests([$new_val]) >>
+
+Gets/sets the total number of requests this tracker has processed.
+
+=item C<< $s->num_hashes([$new_val]) >>
+
+Gets/sets the number of hashes on this tracker. Setting this value
+is pretty useless, since it is re-set by the tracker frequently to
+reflect the actual database value.
+
+=item C<< $s->num_peers([$new_val]) >>
+
+Gets/sets the number of peers on this tracker. Setting this value
+is pretty useless, since it is re-set by the tracker frequently to
+reflect the actual database value.
+
+=item C<< $s->announces([$new_val]) >>
+
+Gets/sets the number of announce requests this tracker has served.
+
+=item C<< $s->scrapes([$new_val]) >>
+
+Gets/sets the number of scrape requests this tracker has served.
+
+=item C<< $s->full_scrapes([$new_val]) >>
+
+Gets/sets the number of non-specific scrape requests this tracker has served.
+
+=item C<< $s->bad_announces([$new_val]) >>
+
+Gets/sets the number of erronious announce requests this tracker has processed.
+
+=item C<< $s->bad_scrapes([$new_val]) >>
+
+Gets/sets the number of erronious scrape requests this tracker has processed.
+
+=item C<< $s->start_t([$new_val]) >>
+
+Gets/sets the UNIX timestamp when this tracker started up.
+
+=item C<< $s->master_pid([$new_val]) >>
+
+Gets/sets process id of the tracker instance that is responsible for final clean-up on shutdown.
+Changing this value can be hazardous!
+
+=item C<< $s->server_time([$new_val]) >>
+
+This value is updated whenever the tracker processes an announce, register, or scrape request.
 
 =back
 
@@ -286,15 +277,15 @@ Net::BitTorrent::LibBTT - Manipulate a tracker running under libbtt from perl
 
 =over
 
-=item $hash = $tracker->Infohash($hash_id, [$create])
+=item C<< $hash = $tracker->Infohash($hash_id, [$create]) >>
 
-  Returns a Net::BitTorrent::LibBTT::Infohash object for the given 20-byte $hash_id.
-  If $create is set to "1", the hash will be created if it does not already exist.
+Returns a Net::BitTorrent::LibBTT::Infohash object for the given 20-byte $hash_id.
+If $create is set to "1", the hash will be created if it does not already exist.
 
-=item @hashes = $tracker->Infohashes()
+=item C<< @hashes = $tracker->Infohashes() >>
 
-  Returns an array of Net::BitTorrent::LibBTT::Infohash objects, one for each hash
-  in the tracker's database.
+Returns an array of C<Net::BitTorrent::LibBTT::Infohash> objects, one for each hash
+in the tracker's database.
 
 =back
 
@@ -302,129 +293,119 @@ Net::BitTorrent::LibBTT - Manipulate a tracker running under libbtt from perl
 
 =over
 
-=item $hash->save()
+=item C<< $hash->save() >>
 
-  Copy changes to the Net::BitTorrent::LibBTT::Infohash object back into the tracker
-  database.
-  
-  With busy torrents, it is possible that you will overwrite the tracker's updates
-  to the infohash with this method. Most of the updates are only statistical and
-  vital information is re-populated with each announce request, but if you want to
-  keep your statistics accurate, be careful not to take too long between loading
-  a hash and saving. If you are doing a long operation on a hash, load it first,
-  do your calculations, load it again, update the second object quickly, then save.
+Copy changes to the C<Net::BitTorrent::LibBTT::Infohash> object back into the tracker
+database.
 
-  TODO: Hash initializer method that maintains a database cursor on the hash so that
-  updates can be made more safely. This brings up issues/complications with the berkeley
-  transactional db but should be ready in the next version.
+=item C<< $hash->infohash() >>
 
-=item $hash->infohash()
+Return the 20-byte infohash value for this torrent. This value may not be modified;
+create a new Infohash object instead.
 
-  Return the 20-byte infohash value for this torrent. This value may not be modified;
-  create a new Infohash object instead.
+=item C<< $hash->filename([$new_val]) >>
 
-=item $hash->filename([$new_val])
+Gets/sets the filename to report for this hash on the information page.
 
-  Gets/sets the filename to report for this hash on the information page.
+=item C<< $hash->filesize([$new_val]) >>
 
-=item $hash->filesize([$new_val])
+Gets/sets the size of the actual file(s) represented by this infohash, in bytes.
 
-  Gets/sets the size of the actual file(s) represented by this infohash, in bytes.
+=item C<< $hash->max_uploaded() >>
 
-=item $hash->max_uploaded()
+Returns the highest C<uploaded> value reported by any peers currently active on this infohash.
 
-  Returns the highest "uploaded" value returned by any peers currently active on this infohash.
+=item C<< $hash->max_downloaded() >>
 
-=item $hash->max_downloaded()
+Returns the highest C<downloaded> value reported by any peers currently active on this infohash.
 
-  Returns the highest "downloaded" value returned by any peers currently active on this infohash.
+=item C<< $hash->max_left() >>
 
-=item $hash->max_left()
+Returns the highest C<left> value reported by any peers currently active on this infohash.
 
-  Returns the highest "left" value returned by any peers currently active on this infohash.
+=item C<< $hash->min_left() >>
 
-=item $hash->min_left()
+Returns the lowest C<left> value reported by any peers currently active on this infohash,
+except for seeds. The only time C<$hash->min_left()> will return zero is if I<all> of the
+peers on the infohash are seeds.
 
-  Returns the lowest "left" value returned by any peers currently active on this infohash,
-  except for seeds. (min_left will only ever be "0" if there are only seeds connected).
+=item C<< $hash->hits([$new_val]) >>
 
-=item $hash->hits([$new_val])
+Gets/sets the number of times this infohash has been part of an announce request.
 
-  Gets/sets the number of times this infohash has been part of an announce request.
+=item C<< $hash->peers() >>
 
-=item $hash->peers()
+Returns the number of peers in this hash. I<If you want to get a list of every actual peer,
+use the C<< $hash->Peers() >> method (documented below) instead.>
 
-  Returns the number of peers in this hash. If you want to get the peers themselves,
-  use the $hash->Peers() method (documented below) instead.
+=item C<< $hash->seeds() >>
 
-=item $hash->seeds()
+Returns the number of seeds in this hash.
 
-  Returns the number of seeds in this hash.
+=item C<< $hash->shields() >>
 
-=item $hash->shields()
+Returns the number of shielded seeds in this hash. Shielded seeds are only
+returned to other peers if there are absolutely no other seeds available.
 
-  Returns the number of shielded seeds in this hash. Shielded seeds are only
-  returned to other peers if there are absolutely no other seeds available.
+=item C<< $hash->starts([$new_val]) >>
 
-=item $hash->starts([$new_val])
+Gets/sets the number of C</announce> requests this tracker has processed with
+the peer's C<started> attribute set.
 
-  Gets/sets the number of /announce requests this tracker has processed with
-  the "started" attribute set.
+=item C<< $hash->stops([$new_val]) >>
 
-=item $hash->stops([$new_val])
+Gets/sets the number of C</announce> requests this tracker has processed with
+the peer's C<stopped> attribute set.
 
-  Gets/sets the number of /announce requests this tracker has processed with
-  the "stopped" attribute set.
+=item C<< $hash->completes([$new_val]) >>
 
-=item $hash->completes([$new_val])
+Gets/sets the number of /announce requests this tracker has processed with
+the peer's C<completed> attribute set.
 
-  Gets/sets the number of /announce requests this tracker has processed with
-  the "completed" attribute set.
+=item C<< $hash->first_t() >>
 
-=item $hash->first_t()
+Returns the UNIX timestamp for when this hash was first placed in the database.
 
-  Returns the timestamp for when this hash was first placed in the database.
+=item C<< $hash->last_t([$new_val]) >>
 
-=item $hash->last_t([$new_val])
+Returns the timestamp for when this hash was last processed.
 
-  Returns the timestamp for when this hash was last processed.
+=item C<< $hash->register_t([$new_val]) >>
 
-=item $hash->register_t([$new_val])
+Returns the timestamp for when this hash was registered. Hashes with a C<register_t> value
+other than 0 will not ever be deleted by the tracker's garbage collection.
 
-  Returns the timestamp for when this hash was "Registered". Hashes with a "register_t" value
-  other than 0 will not be deleted by the tracker's garbage collection.
+=item C<< $hash->first_peer_t() >>
 
-=item $hash->first_peer_t()
+Returns the timestamp for when this hash first had a peer.
 
-  Returns the timestamp for when this hash first had a peer.
+=item C<< $hash->last_peer_t() >>
 
-=item $hash->last_peer_t()
+Returns the timestamp for when this hash last had a peer.
 
-  Returns the timestamp for when this hash last had a peer.
+=item C<< $hash->first_seed_t() >>
 
-=item $hash->first_seed_t()
+Returns the timestamp for when this hash first had a seed.
 
-  Returns the timestamp for when this hash first had a seed.
+=item C<< $hash->last_seed_t() >>
 
-=item $hash->last_seed_t()
-
-  Returns the timestamp for when this hash last had a seed.
+Returns the timestamp for when this hash last had a seed.
 
 =back
 
 =head2 PEERS
 
-  Peers are always returned from Infohashes.
+Peers are always returned from Infohashes.
 
 =head3 Functions
 
 =over
 
-=item Net::BitTorrent::LibBTT::Peer::Flags()
+=item C<< Net::BitTorrent::LibBTT::Peer::Flags() >>
 
-  Returns a list of key/value pairs, the keys being valid 
-  binary flag values for a peer, the values being the configuration
-  names of those flags.
+Returns a list of key/value pairs, the keys being valid 
+binary flag values for a peer, the values being the configuration
+names of those flags.
 
 =back
 
@@ -432,18 +413,18 @@ Net::BitTorrent::LibBTT - Manipulate a tracker running under libbtt from perl
 
 =over
 
-=item $peer = $hash->Peer($peer_id)
+=item C<< $peer = $hash->Peer($peer_id) >>
 
-  Given the 20-byte peer_id, return a Net::BitTorrent::LibBTT::Peer object from the database
-  associated with that peer. If the peer does not exist, it will be created.
+Given the 20-byte peer_id, return a C<Net::BitTorrent::LibBTT::Peer> object from the database
+associated with that peer. If the peer does not exist, it will be created.
 
-=item @peers = $hash->Peers()
+=item C<< @peers = $hash->Peers() >>
 
-  Return all peers associated with a given hash.
-  
-  NOTE: When dealing with peers, it is ABSOLUTELY VITAL at this point that you do not attempt
-  to access Net::BitTorrent::LibBTT::Peer objects after the Infohash object that spawned them
-  has been destroyed!!!
+Return all peers associated with a given hash.
+
+B<NOTE:> When dealing with peers, it is ABSOLUTELY VITAL at this point that you do not attempt
+to access C<Net::BitTorrent::LibBTT::Peer> objects after the C<Net::BitTorrent::LibBTT::Infohash> object
+that created them has been destroyed!!!
 
 =back
 
@@ -451,127 +432,125 @@ Net::BitTorrent::LibBTT - Manipulate a tracker running under libbtt from perl
 
 =over
 
-=item $peer->save()
+=item C<< $peer->save() >>
 
-  Store the object's information in the database. As with infohashes, care should be taken that
-  a save() request happens as quickly as possible after the peer object is loaded.
+Store the object's information in the database. As with infohashes, care should be taken that
+a C<< $peer->save() >> call happens as quickly as possible after the peer object is loaded.
 
-=item $peer->peerid()
+=item C<< $peer->peerid() >>
 
-  Returns the 20-byte peer id associated with this peer.
+Returns the 20-byte peer id associated with this peer.
 
-=item $peer->infohash()
+=item C<< $peer->infohash() >>
 
-  Returns the 20-byte infohash associated with this peer.
+Returns the 20-byte infohash associated with this peer.
 
-=item $peer->flags([$new_val])
+=item C<< $peer->flags([$new_val]) >>
 
-=item $peer->ua([$new_val])
+Get/set this peer's flags as a bitmask. The meanings of each bit are returned by the
+L</Net::BitTorrent::LibBTT::Peer::Flags()> function.
 
-  Set/return the User-Agent of the peer.
+=item C<< $peer->ua([$new_val]) >>
 
-=item $peer->event([$new_val])
+Get/set the User-Agent of the peer.
 
-=item ($addr, $port) = $peer->address([$new_addr[, $new_port]])
+=item C<< $peer->event([$new_val]) >>
 
- Get/set the peers's reported IP address and port.
- IP addresses are returned/specified as a 4-byte string in network byte order,
- suitable for passing to inet_ntoa.
- Ports are returned as an integer value in host byte order.
+Get/set the last C<event> string this peer returned.
 
-=item ($addr, $port) = $peer->real_address([$new_addr[, $new_port]])
+=item C<< ($addr, $port) = $peer->address([$new_addr[, $new_port]]) >>
 
- Get/set the peers's detected IP address and port.
+Get/set the peers's reported IP address and port.
+IP addresses are returned/specified as a 4-byte string in network byte order,
+suitable for passing to "inet_ntoa".
+Ports are returned as an integer value in host byte order.
 
-=item $peer->first_t([$new_val])
+=item C<< ($addr, $port) = $peer->real_address([$new_addr[, $new_port]]) >>
 
- Get/set the timestamp for when this peer first connected to the tracker.
+Get/set the peers's detected IP address and port.
 
-=item $peer->last_t([$new_val])
+=item C<< $peer->first_t([$new_val]) >>
 
- Get/set the timestamp for when this peer last connected to the tracker.
+Get/set the timestamp for when this peer first connected to the tracker.
 
-=item $peer->first_serve_t([$new_val])
+=item C<< $peer->last_t([$new_val]) >>
 
- Get/set the timestamp for the first time this peer was served to another peer.
+Get/set the timestamp for when this peer last connected to the tracker.
 
-=item $peer->last_serve_t([$new_val])
+=item C<< $peer->first_serve_t([$new_val]) >>
 
- Get/set the timestamp for the last time this peer was served to another peer.
+Get/set the timestamp for the first time this peer was served to another peer.
 
-=item $peer->complete_t([$new_val])
+=item C<< $peer->last_serve_t([$new_val]) >>
 
- Get/set the timestamp for when this peer reported that it was done downloading, if ever.
+Get/set the timestamp for the last time this peer was served to another peer.
 
-=item $peer->return_interval([$new_val])
+=item C<< $peer->complete_t([$new_val]) >>
 
- Get/set the return interval last returned to this peer.
+Get/set the timestamp for when this peer reported that it was done downloading, if ever.
 
-=item $peer->hits([$new_val])
+=item C<< $peer->return_interval([$new_val]) >>
 
- Get/set the number of times this peer has connected to the tracker.
+Get/set the return interval last returned to this peer.
 
-=item $peer->serves([$new_val])
+=item C<< $peer->hits([$new_val]) >>
 
- Get/set the number of times this peer has been served to other peers.
+Get/set the number of times this peer has connected to the tracker.
 
-=item $peer->num_want([$new_val])
+=item C<< $peer->serves([$new_val]) >>
 
- Get/set the number of peers this peer asked for on it's last /announce request.
+Get/set the number of times this peer has been served to other peers.
 
-=item $peer->num_got([$new_val])
+=item C<< $peer->num_want([$new_val]) >>
 
- Get/set the number of peers this peer was sent on it's last /announce request.
+Get/set the number of peers this peer asked for on it's last C</announce> request.
 
-=item $peer->announce_byes([$new_val])
+=item C<< $peer->num_got([$new_val]) >>
 
- Get/set the total number of bytes that have been sent to this peer in /announce responses.
+Get/set the number of peers this peer was sent on it's last C</announce> request.
 
-=item $peer->uploaded([$new_val])
+=item C<< $peer->announce_byes([$new_val]) >>
 
- Get/set the number of bytes this peer claims to have uploaded.
+Get/set the total number of bytes that have been sent to this peer in C</announce> responses.
 
-=item $peer->downloaded([$new_val])
+=item C<< $peer->uploaded([$new_val]) >>
 
- Get/set the number of bytes this peer claims to have downloaded.
+Get/set the number of bytes this peer claims to have uploaded.
 
-=item $peer->left([$new_val])
+=item C<< $peer->downloaded([$new_val]) >>
 
- Get/set the number of bytes this peer claims to have left to download.
+Get/set the number of bytes this peer claims to have downloaded.
+
+=item C<< $peer->left([$new_val]) >>
+
+Get/set the number of bytes this peer claims to have left to download.
 
 =back
 
 =head1 NOTES
 
-  This is alpha software.
+This is alpha software.
 
-  libbtt uses the Apache Portability Runtime (APR) library for it's memory
-  management. Perl has it's own memory management system, and the code
-  to keep them in sync has not been completely foolproofed.
-  
-  This does not cause any major problem so long as you pay attention to the
-  scope of your variables; first, never use an Infohash object after the Tracker
-  object that created it is gone, and second, never use a Peer object after
-  the Infohash object that created it is gone.
-
-  When a multi-process tracker is running, the less Infohash or Peer
-  objects you keep defined at a time the better. If you are modifying
-  them, the quicker you save them after loading them, the better.
+While C<libbtt> itself is, C<Net::BitTorrent::LibBTT> is B<not> transactional.
+This is to prevent perl scripts from affecting the operations of the tracker.
+If you are saving data to the tracker's database, it is always best to do so as
+quickly as possible after loading the data, otherwise your save may overwrite
+a tracker update.
 
 =head1 SEE ALSO
 
-  Apache::ModBT
+L<Apache::ModBT>, L<http://www.crackerjack.net/mod_bt/>, Socket(3), perlfunc, L<IO::Socket::INET>
 
 =head1 AUTHOR
 
-  Tyler 'Crackerjack' MacDonald, E<lt>tyler@yi.orgE<gt>
+Tyler 'Crackerjack' MacDonald, <tyler@yi.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-  Copyright (C) 2004 by Tyler 'Crackerjack' MacDonald
+Copyright (C) 2004 by Tyler 'Crackerjack' MacDonald
 
-  This library is free software; you can redistribute it and/or modify
-  it under the same terms as Perl itself, either Perl version 5.8.4 or,
-  at your option, any later version of Perl 5 you may have available.
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.4 or,
+at your option, any later version of Perl 5 you may have available.
 
 =cut
