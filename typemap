@@ -1,0 +1,13 @@
+Net::BitTorrent::LibBTT::Tracker			T_PTROBJ
+Net::BitTorrent::LibBTT::Tracker::Config	T_PTROBJ
+Net::BitTorrent::LibBTT::Tracker::Stats		T_PTROBJ
+Net::BitTorrent::LibBTT::Infohash			T_PTROBJ
+Net::BitTorrent::LibBTT::Peer				T_PTROBJ
+
+u_int64_t									T_IV
+u_int32_t									T_IV
+u_int16_t									T_IV
+int32_t										T_IV
+unsigned char								T_IV
+pid_t										T_IV
+

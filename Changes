@@ -1,0 +1,6 @@
+Revision history for Perl extension Net::BitTorrent::LibBTT.
+
+0.01  Sun May 23 19:05:18 2004
+	- original version; created by h2xs 1.23 with options
+		-O -n Net::BitTorrent::LibBTT bt_const.h bt_types.h
+
