@@ -1,12 +1,12 @@
 Changes
-LibBTT.xs
-Makefile.PL
-MANIFEST
-ppport.h
-README
-t/Net-BitTorrent-LibBTT.t
 fallback/const-c.inc
 fallback/const-xs.inc
 lib/Net/BitTorrent/LibBTT.pm
+LibBTT.xs
+Makefile.PL
+MANIFEST			This list of files
+ppport.h
+README
+t/Net-BitTorrent-LibBTT.t
 typemap
 META.yml                                 Module meta-data (added by MakeMaker)

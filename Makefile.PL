@@ -3,8 +3,14 @@ use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 
-my $apr = `$ENV{APR_CONFIG} --link-ld`;
-chomp($apr);
+my $apr_config = find_apr_config() or die <<"EOT";
+Couldn't find apr-config!
+Please set the APR_CONFIG environment variable to the full path of
+the apr-config you wish to use and try again.
+EOT
+
+my $apr_link = `$apr_config --link-ld`;
+chop $apr_link;
 
 WriteMakefile(
     NAME              => 'Net::BitTorrent::LibBTT',
@@ -12,14 +18,12 @@ WriteMakefile(
     PREREQ_PM         => { "APR" => 0 }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Net/BitTorrent/LibBTT.pm', # retrieve abstract from module
-       AUTHOR         => 'Tyler \'Crackerjack\' MacDonald <faraway@>') : ()),
-    LIBS              => ['-ldb-4.2', '-lapr-0'], # e.g., '-lm'
+       AUTHOR         => 'Tyler \'Crackerjack\' MacDonald <tyler@yi.org>') : ()),
+    LIBS              => [ "-lbtt $apr_link" ],
+    clean             => { FILES => "const-c.inc const-xs.inc" },
     DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
-    INC               => '-I. -I.. -I../..' . `$ENV{APR_CONFIG} --includes`, # e.g., '-I. -I/usr/include/other'
-    dynamic_lib 		=> { OTHERLDFLAGS	  => "$apr ../libbtt.a" }
-	# Un-comment this if you add C files to link with later:
-    # OBJECT            => '../libbtt.a $(O_FILES)', # link all the C files too
 );
+
 if  (eval {require ExtUtils::Constant; 1}) {
   # If you edit these definitions to change the constants used by this module,
   # you will need to use the generated const-c.inc and const-xs.inc
@@ -46,4 +50,18 @@ else {
     my $fallback = File::Spec->catfile('fallback', $file);
     copy ($fallback, $file) or die "Can't copy $fallback to $file: $!";
   }
+}
+
+
+##
+
+sub find_apr_config {
+    return $ENV{APR_CONFIG} if($ENV{APR_CONFIG});
+    my @path = split(/:/, $ENV{PATH});
+    while(my $path = shift @path) {
+        foreach ('apr-config', 'apr-1-config') {
+            return "$path/$_" if -x "$path/$_";
+        }
+    }
+    return;
 }

@@ -18,7 +18,7 @@ our @ISA = qw(Exporter);
 # This allows declaration	use Net::BitTorrent::LibBTT ':all';
 # If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
 # will save memory.
-our $VERSION = '0.010';
+our $VERSION = '0.014';
 
 require XSLoader;
 XSLoader::load('Net::BitTorrent::LibBTT', $VERSION);
@@ -529,7 +529,7 @@ Get/set the number of bytes this peer claims to have left to download.
 
 =head1 NOTES
 
-This is alpha software.
+This is a pole for perl.
 
 While C<libbtt> itself is, C<Net::BitTorrent::LibBTT> is B<not> transactional.
 This is to prevent perl scripts from affecting the operations of the tracker.
@@ -547,7 +547,7 @@ Tyler 'Crackerjack' MacDonald, <tyler@yi.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2004 by Tyler 'Crackerjack' MacDonald
+Copyright (C) 2006 by Tyler 'Crackerjack' MacDonald
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.4 or,
